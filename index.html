@@ -6,6 +6,14 @@
     <title>Indianapolis Louver Shadow Designer</title>
     <!-- Tailwind CSS for clean, rapid layout styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Smooth transitions for interactive elements */
+        .transition-all {
+            transition-property: all;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 200ms;
+        }
+    </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
 
@@ -70,6 +78,10 @@
                     <span class="text-slate-400">Winter Gap Clearance:</span>
                     <span id="winterEff" class="font-bold text-sky-400 font-mono text-base">98%</span>
                 </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">Shadow Offset (from post):</span>
+                    <span id="shadowOffset" class="font-bold text-amber-400 font-mono text-base">2' 11"</span>
+                </div>
             </div>
         </div>
 
@@ -93,193 +105,245 @@
 
     <!-- Logic Engine -->
     <script>
-        // DOM Elements
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
-        const summerBtn = document.getElementById('summerBtn');
-        const winterBtn = document.getElementById('winterBtn');
-        const angleSlider = document.getElementById('angleSlider');
-        const angleVal = document.getElementById('angleVal');
-        const spacingSlider = document.getElementById('spacingSlider');
-        const spacingVal = document.getElementById('spacingVal');
-        const shadePct = document.getElementById('shadePct');
-        const winterEff = document.getElementById('winterEff');
-        const activeAngleDisplay = document.getElementById('activeAngleDisplay');
-
-        // Application State Configurations
-        let activeSunAngle = 73.67; // Summer default solar noon altitude
-        const latIndy = 39.77;
-        const slatWidth = 12; // Inches
-        const roofHeight = 120; // 10 feet in inches
-
-        // Track Slider Values
-        let currentSlatAngle = parseFloat(angleSlider.value); // Deg
-        let currentSlatSpacing = parseFloat(spacingSlider.value) / 10; // Back to decimal inches
-
-        // Event Listeners for Season Buttons
-        summerBtn.addEventListener('click', () => {
-            activeSunAngle = 90 - latIndy + 23.44;
-            setSeasonUi(summerBtn, winterBtn, "Summer Solstice (73.7°)");
-        });
-
-        winterBtn.addEventListener('click', () => {
-            activeSunAngle = 90 - latIndy - 23.44;
-            setSeasonUi(winterBtn, summerBtn, "Winter Solstice (26.8°)");
-        });
-
-        function setSeasonUi(active, inactive, text) {
-            active.className = "py-2 px-3 rounded-lg text-sm font-semibold border transition-all duration-200 bg-amber-500/20 border-amber-500 text-amber-300 shadow-lg shadow-amber-500/10";
-            inactive.className = "py-2 px-3 rounded-lg text-sm font-semibold border transition-all duration-200 bg-slate-700 border-slate-600 text-slate-400 hover:text-slate-200";
-            activeAngleDisplay.innerText = `Sun Angle: ${activeSunAngle.toFixed(1)}°`;
-            drawSimulation();
-        }
-
-        // Event Listeners for Sliders
-        angleSlider.addEventListener('input', (e) => {
-            currentSlatAngle = parseFloat(e.target.value);
-            angleVal.innerText = `${currentSlatAngle}°`;
-            drawSimulation();
-        });
-
-        spacingSlider.addEventListener('input', (e) => {
-            currentSlatSpacing = parseFloat(e.target.value) / 10;
-            spacingVal.innerText = `${currentSlatSpacing.toFixed(1)} in`;
-            drawSimulation();
-        });
-
-        // Resize management
-        function resizeCanvas() {
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width * window.devicePixelRatio;
-            canvas.height = rect.height * window.devicePixelRatio;
-            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-            drawSimulation();
-        }
-        window.addEventListener('resize', resizeCanvas);
-
-        // Core Rendering and Geometric Engine
-        function drawSimulation() {
-            const w = canvas.width / window.devicePixelRatio;
-            const h = canvas.height / window.devicePixelRatio;
-            if (w === 0 || h === 0) return;
-
-            // Clear Scene
-            ctx.clearRect(0, 0, w, h);
-
-            // Establish coordinate frameworks mapping inches to pixels
-            const padLeft = w * 0.15;
-            const padTop = h * 0.2;
-            const drawWidth = w * 0.7;
-            const drawHeight = h * 0.65;
-            
-            // Pixels per inch calculation
-            const ppi = drawHeight / roofHeight; 
-
-            const yGround = padTop + drawHeight;
-            const yRoof = padTop;
-
-            // Calculate Static Math Indicators
-            const sunRad = activeSunAngle * (Math.PI / 180);
-            const tiltRad = currentSlatAngle * (Math.PI / 180);
-
-            // 1. Calculate Theoretical Shade Percentage (Summer) & Gap Opening (Winter)
-            const radSummer = (73.67) * (Math.PI / 180);
-            const expectedSummerGap = currentSlatSpacing * Math.sin(radSummer) - (slatWidth * Math.sin(radSummer - tiltRad));
-            let calculatedShade = 100;
-            if (expectedSummerGap > 0) {
-                calculatedShade = Math.max(0, 100 - (expectedSummerGap / (currentSlatSpacing * Math.sin(radSummer)) * 100));
+        // Wrap all DOM selections and operations inside a DOMContentLoaded event handler to prevent null/timing errors
+        window.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('simCanvas');
+            if (!canvas) {
+                console.error("Critical: Canvas element with ID 'simCanvas' was not found in the DOM.");
+                return;
             }
-            shadePct.innerText = `${Math.round(calculatedShade)}%`;
+            
+            const ctx = canvas.getContext('2d');
+            const summerBtn = document.getElementById('summerBtn');
+            const winterBtn = document.getElementById('winterBtn');
+            const angleSlider = document.getElementById('angleSlider');
+            const angleVal = document.getElementById('angleVal');
+            const spacingSlider = document.getElementById('spacingSlider');
+            const spacingVal = document.getElementById('spacingVal');
+            const shadePct = document.getElementById('shadePct');
+            const winterEff = document.getElementById('winterEff');
+            const shadowOffset = document.getElementById('shadowOffset');
+            const activeAngleDisplay = document.getElementById('activeAngleDisplay');
 
-            const radWinter = (26.79) * (Math.PI / 180);
-            const alignmentDeficit = Math.abs(radWinter - tiltRad);
-            const winterEfficiency = Math.max(0, Math.min(100, Math.cos(alignmentDeficit) * 100));
-            winterEff.innerText = `${Math.round(winterEfficiency)}%`;
+            // Application State Configurations
+            let activeSunAngle = 73.67; // Summer default solar noon altitude
+            const latIndy = 39.77;
+            const slatWidth = 12; // Inches
+            const roofHeight = 120; // 10 feet in inches
 
-            // 2. Draw Ground Plane
-            ctx.strokeStyle = '#475569';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(0, yGround);
-            ctx.lineTo(w, yGround);
-            ctx.stroke();
-            ctx.fillStyle = '#334155';
-            ctx.font = '10px monospace';
-            ctx.fillText('PATIO GROUND PLANE (10 FT BELOW)', 10, yGround + 15);
+            // Track Slider Values
+            let currentSlatAngle = parseFloat(angleSlider.value); // Deg
+            let currentSlatSpacing = parseFloat(spacingSlider.value) / 10; // Back to decimal inches
 
-            // 3. Draw Louvers and Trace Rays
-            const numSlats = 5;
-            const pixelSlatWidth = slatWidth * ppi;
-            const pixelSlatSpacing = currentSlatSpacing * ppi;
+            // Event Listeners for Season Buttons
+            if (summerBtn && winterBtn) {
+                summerBtn.addEventListener('click', () => {
+                    activeSunAngle = 90 - latIndy + 23.44;
+                    setSeasonUi(summerBtn, winterBtn, "Summer Solstice (73.7°)");
+                });
 
-            // Render Sun Beam Bands behind everything
-            ctx.fillStyle = 'rgba(245, 158, 11, 0.07)';
-            ctx.strokeStyle = 'rgba(245, 158, 11, 0.2)';
-            ctx.lineWidth = 1;
+                winterBtn.addEventListener('click', () => {
+                    activeSunAngle = 90 - latIndy - 23.44;
+                    setSeasonUi(winterBtn, summerBtn, "Winter Solstice (26.8°)");
+                });
+            }
 
-            for (let i = 0; i < numSlats; i++) {
-                const xSlatStart = padLeft + (i * pixelSlatSpacing);
+            function setSeasonUi(active, inactive, text) {
+                if (active && inactive) {
+                    active.className = "py-2 px-3 rounded-lg text-sm font-semibold border transition-all duration-200 bg-amber-500/20 border-amber-500 text-amber-300 shadow-lg shadow-amber-500/10";
+                    inactive.className = "py-2 px-3 rounded-lg text-sm font-semibold border transition-all duration-200 bg-slate-700 border-slate-600 text-slate-400 hover:text-slate-200";
+                }
+                if (activeAngleDisplay) {
+                    activeAngleDisplay.innerText = `Sun Angle: ${activeSunAngle.toFixed(1)}°`;
+                }
+                drawSimulation();
+            }
+
+            // Event Listeners for Sliders
+            if (angleSlider && angleVal) {
+                angleSlider.addEventListener('input', (e) => {
+                    currentSlatAngle = parseFloat(e.target.value);
+                    angleVal.innerText = `${currentSlatAngle}°`;
+                    drawSimulation();
+                });
+            }
+
+            if (spacingSlider && spacingVal) {
+                spacingSlider.addEventListener('input', (e) => {
+                    currentSlatSpacing = parseFloat(e.target.value) / 10;
+                    spacingVal.innerText = `${currentSlatSpacing.toFixed(1)} in`;
+                    drawSimulation();
+                });
+            }
+
+            // Resize management
+            function resizeCanvas() {
+                const rect = canvas.getBoundingClientRect();
+                canvas.width = rect.width * window.devicePixelRatio;
+                canvas.height = rect.height * window.devicePixelRatio;
+                ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                drawSimulation();
+            }
+            window.addEventListener('resize', resizeCanvas);
+
+            // Core Rendering and Geometric Engine
+            function drawSimulation() {
+                const w = canvas.width / window.devicePixelRatio;
+                const h = canvas.height / window.devicePixelRatio;
+                if (w === 0 || h === 0) return;
+
+                // Clear Scene
+                ctx.clearRect(0, 0, w, h);
+
+                // Establish coordinate frameworks mapping inches to pixels
+                const padLeft = w * 0.15;
+                const padTop = h * 0.2;
+                const drawWidth = w * 0.7;
+                const drawHeight = h * 0.65;
                 
-                // Calculate end point coordinates of the tilted slat profile
-                const xSlatEnd = xSlatStart + (pixelSlatWidth * Math.cos(tiltRad));
-                const ySlatEnd = yRoof - (pixelSlatWidth * Math.sin(tiltRad));
+                // Pixels per inch calculation
+                const ppi = drawHeight / roofHeight; 
 
-                // Project sun ray shadow limits down to patio floor
-                // Ray originating from front edge of louver
-                const distToGroundStart = yGround - yRoof;
-                const xRayStartGround = xSlatStart + (distToGroundStart / Math.tan(sunRad));
+                const yGround = padTop + drawHeight;
+                const yRoof = padTop;
 
-                // Ray originating from back edge of louver
-                const distToGroundEnd = yGround - ySlatEnd;
-                const xRayEndGround = xSlatEnd + (distToGroundEnd / Math.tan(sunRad));
+                // Calculate Static Math Indicators
+                const sunRad = activeSunAngle * (Math.PI / 180);
+                const tiltRad = currentSlatAngle * (Math.PI / 180);
 
-                // Draw Light Pathways falling through the layout gaps
+                // 1. Calculate Theoretical Shade Percentage (Summer) & Gap Opening (Winter)
+                const radSummer = (73.67) * (Math.PI / 180);
+                const expectedSummerGap = currentSlatSpacing * Math.sin(radSummer) - (slatWidth * Math.sin(radSummer - tiltRad));
+                let calculatedShade = 100;
+                if (expectedSummerGap > 0) {
+                    calculatedShade = Math.max(0, 100 - (expectedSummerGap / (currentSlatSpacing * Math.sin(radSummer)) * 100));
+                }
+                if (shadePct) shadePct.innerText = `${Math.round(calculatedShade)}%`;
+
+                const radWinter = (26.79) * (Math.PI / 180);
+                const alignmentDeficit = Math.abs(radWinter - tiltRad);
+                const winterEfficiency = Math.max(0, Math.min(100, Math.cos(alignmentDeficit) * 100));
+                if (winterEff) winterEff.innerText = `${Math.round(winterEfficiency)}%`;
+
+                // Calculate Shadow Offset from vertical anchor line to start of first shadow
+                const offsetInches = roofHeight / Math.tan(sunRad);
+                const offsetFt = Math.floor(offsetInches / 12);
+                const offsetInRem = Math.round(offsetInches % 12);
+                if (shadowOffset) shadowOffset.innerText = `${offsetFt}' ${offsetInRem}"`;
+
+                // 2. Draw Ground Plane
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(xSlatStart, yRoof);
-                ctx.lineTo(xRayStartGround, yGround);
-                ctx.lineTo(xRayEndGround, yGround);
-                ctx.lineTo(xSlatEnd, ySlatEnd);
-                ctx.closePath();
-                ctx.fill();
-
-                // Highlight raw pathway vector lines
-                ctx.beginPath();
-                ctx.moveTo(xSlatStart, yRoof);
-                ctx.lineTo(xRayStartGround, yGround);
-                ctx.moveTo(xSlatEnd, ySlatEnd);
-                ctx.lineTo(xRayEndGround, yGround);
+                ctx.moveTo(0, yGround);
+                ctx.lineTo(w, yGround);
                 ctx.stroke();
+                ctx.fillStyle = '#334155';
+                ctx.font = '10px monospace';
+                ctx.fillText('PATIO GROUND PLANE (10 FT BELOW)', 10, yGround + 15);
+
+                // Draw Offset Dimension Line on Ground
+                const xOffsetStart = padLeft;
+                const xOffsetEnd = padLeft + (offsetInches * ppi);
+                const yDim = yGround + 28;
+
+                if (xOffsetEnd > xOffsetStart) {
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(xOffsetStart, yDim);
+                    ctx.lineTo(xOffsetEnd, yDim);
+                    // End ticks
+                    ctx.moveTo(xOffsetStart, yDim - 4);
+                    ctx.lineTo(xOffsetStart, yDim + 4);
+                    ctx.moveTo(xOffsetEnd, yDim - 4);
+                    ctx.lineTo(xOffsetEnd, yDim + 4);
+                    ctx.stroke();
+
+                    // Dimension Label
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.font = 'bold 11px sans-serif';
+                    ctx.textAlign = 'center';
+                    const midX = (xOffsetStart + xOffsetEnd) / 2;
+                    if (midX < w - 30) {
+                        ctx.fillText(`Offset: ${offsetFt}' ${offsetInRem}"`, Math.max(xOffsetStart + 45, Math.min(midX, w - 60)), yDim + 12);
+                    }
+                }
+
+                // 3. Draw Louvers and Trace Rays
+                const numSlats = 5;
+                const pixelSlatWidth = slatWidth * ppi;
+                const pixelSlatSpacing = currentSlatSpacing * ppi;
+
+                // Render Sun Beam Bands behind everything
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.07)';
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.2)';
+                ctx.lineWidth = 1;
+
+                for (let i = 0; i < numSlats; i++) {
+                    const xSlatStart = padLeft + (i * pixelSlatSpacing);
+                    
+                    // Calculate end point coordinates of the tilted slat profile
+                    const xSlatEnd = xSlatStart + (pixelSlatWidth * Math.cos(tiltRad));
+                    const ySlatEnd = yRoof - (pixelSlatWidth * Math.sin(tiltRad));
+
+                    // Project sun ray shadow limits down to patio floor
+                    // Ray originating from front edge of louver
+                    const distToGroundStart = yGround - yRoof;
+                    const xRayStartGround = xSlatStart + (distToGroundStart / Math.tan(sunRad));
+
+                    // Ray originating from back edge of louver
+                    const distToGroundEnd = yGround - ySlatEnd;
+                    const xRayEndGround = xSlatEnd + (distToGroundEnd / Math.tan(sunRad));
+
+                    // Draw Light Pathways falling through the layout gaps
+                    ctx.beginPath();
+                    ctx.moveTo(xSlatStart, yRoof);
+                    ctx.lineTo(xRayStartGround, yGround);
+                    ctx.lineTo(xRayEndGround, yGround);
+                    ctx.lineTo(xSlatEnd, ySlatEnd);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Highlight raw pathway vector lines
+                    ctx.beginPath();
+                    ctx.moveTo(xSlatStart, yRoof);
+                    ctx.lineTo(xRayStartGround, yGround);
+                    ctx.moveTo(xSlatEnd, ySlatEnd);
+                    ctx.lineTo(xRayEndGround, yGround);
+                    ctx.stroke();
+                }
+
+                // Draw Solid Slats on Top Layer
+                ctx.strokeStyle = '#f8fafc';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                
+                for (let i = 0; i < numSlats; i++) {
+                    const xSlatStart = padLeft + (i * pixelSlatSpacing);
+                    const xSlatEnd = xSlatStart + (pixelSlatWidth * Math.cos(tiltRad));
+                    const ySlatEnd = yRoof - (pixelSlatWidth * Math.sin(tiltRad));
+
+                    ctx.beginPath();
+                    ctx.moveTo(xSlatStart, yRoof);
+                    ctx.lineTo(xSlatEnd, ySlatEnd);
+                    ctx.stroke();
+                }
+
+                // Draw a basic structure mounting post anchor line
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(padLeft, yRoof);
+                ctx.lineTo(padLeft, yGround);
+                ctx.stroke();
+                ctx.setLineDash([]);
             }
 
-            // Draw Solid Slats on Top Layer
-            ctx.strokeStyle = '#f8fafc';
-            ctx.lineWidth = 4;
-            ctx.lineCap = 'round';
-            
-            for (let i = 0; i < numSlats; i++) {
-                const xSlatStart = padLeft + (i * pixelSlatSpacing);
-                const xSlatEnd = xSlatStart + (pixelSlatWidth * Math.cos(tiltRad));
-                const ySlatEnd = yRoof - (pixelSlatWidth * Math.sin(tiltRad));
-
-                ctx.beginPath();
-                ctx.moveTo(xSlatStart, yRoof);
-                ctx.lineTo(xSlatEnd, ySlatEnd);
-                ctx.stroke();
-            }
-
-            // Draw a basic structure mounting post anchor line
-            ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([4, 4]);
-            ctx.beginPath();
-            ctx.moveTo(padLeft, yRoof);
-            ctx.lineTo(padLeft, yGround);
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
-
-        // Initialize App View State
-        setTimeout(resizeCanvas, 50);
+            // Initialize App View State
+            resizeCanvas();
+        });
     </script>
 </body>
 </html>

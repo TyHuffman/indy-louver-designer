@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Indianapolis Louver Shadow Designer</title>
+    <!-- Tailwind CSS for rapid layout styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 p-6 text-center shadow-md">
+        <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+            Indy Solar Louver Designer
+        </h1>
+        <p class="text-slate-400 mt-2 text-sm sm:text-base">
+            Optimize slats mounted 10 feet high for Indianapolis solar angles (39.77° N)
+        </p>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        
+        <!-- Sidebar Controls Container -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 shadow-xl space-y-6 lg:col-span-1">
+            <h2 class="text-xl font-bold text-slate-200 border-b border-slate-700 pb-2">Configuration</h2>
+            
+            <!-- Season Selection -->
+            <div>
+                <label class="block text-sm font-medium text-slate-400 mb-2">Target Season (Midday Sun Angle)</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="summerBtn" class="py-2 px-3 rounded-lg text-sm font-semibold border transition-all duration-200 bg-amber-500/20 border-amber-500 text-amber-300 shadow-lg shadow-amber-500/10">
+                        Summer Solstice (73.7°)
+                    </button>
+                    <button id="winterBtn" class="py-2 px-3 rounded-lg text-sm font-semibold border transition-all duration-200 bg-slate-700 border-slate-600 text-slate-400 hover:text-slate-200">
+                        Winter Solstice (26.8°)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Slat Angle Input -->
+            <div>
+                <div class="flex justify-between text-sm font-medium mb-1">
+                    <label class="text-slate-400">Slat Tilt Angle (Facing South)</label>
+                    <span id="angleVal" class="text-amber-400 font-mono font-bold">27°</span>
+                </div>
+                <input type="range" id="angleSlider" min="11" max="60" value="27" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                <p class="text-xs text-slate-500 mt-1">27° matches the winter sun perfectly for maximum light transmission.</p>
+            </div>
+
+            <!-- Slat Width Input -->
+            <div>
+                <div class="flex justify-between text-sm font-medium mb-1">
+                    <label class="text-slate-400">Slat Width (Size)</label>
+                    <span id="widthVal" class="text-amber-400 font-mono font-bold">12 in</span>
+                </div>
+                <input type="range" id="widthSlider" min="12" max="40" value="12" step="1" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                <p class="text-xs text-slate-500 mt-1">Adjust individual louver width from 12 to 40 inches.</p>
+            </div>
+
+            <!-- Slat Spacing Input -->
+            <div>
+                <div class="flex justify-between text-sm font-medium mb-1">
+                    <label class="text-slate-400">On-Center Spacing</label>
+                    <span id="spacingVal" class="text-amber-400 font-mono font-bold">9.1 in</span>
+                </div>
+                <input type="range" id="spacingSlider" min="50" max="400" value="91" step="1" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                <p class="text-xs text-slate-500 mt-1">Adjust spacing from 5 to 40 inches (9.1 in gives 100% summer noon shade for 12 in slats).</p>
+            </div>
+
+            <!-- Metrics Panel Output -->
+            <div class="bg-slate-900/60 border border-slate-700/50 rounded-lg p-4 space-y-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Performance Metrics</h3>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">Midday Shade Coverage:</span>
+                    <span id="shadePct" class="font-bold text-emerald-400 font-mono text-base">100%</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">Winter Gap Clearance:</span>
+                    <span id="winterEff" class="font-bold text-sky-400 font-mono text-base">98%</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">Shadow Reach Range:</span>
+                    <span id="shadowOffset" class="font-bold text-amber-400 font-mono text-base">2' 11" – 15' 5"</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Visualization Canvas -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 shadow-xl lg:col-span-2 flex flex-col items-center">
+            <div class="w-full flex justify-between items-center mb-2 px-2 text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                <span>Side View Facing East (Left is South)</span>
+                <span id="activeAngleDisplay" class="text-amber-500 font-mono">Sun Angle: 73.7°</span>
+            </div>
+            <div class="relative w-full aspect-[4/3] bg-slate-950 rounded-lg border border-slate-900 overflow-hidden shadow-inner">
+                <canvas id="simCanvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-800/40 border-t border-slate-800 text-center py-4 text-xs text-slate-500">
+        Designed for custom architectural fabrication in Central Indiana.
+    </footer>
+
+    <!-- Logic Engine -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const canvas = document.getElementById('simCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            const summerBtn = document.getElementById('summerBtn');
+            const winterBtn = document.getElementById('winterBtn');
+            const angleSlider = document.getElementById('angleSlider');
+            const angleVal = document.getElementById('angleVal');
+            const widthSlider = document.getElementById('widthSlider');
+            const widthVal = document.getElementById('widthVal');
+            const spacingSlider = document.getElementById('spacingSlider');
+            const spacingVal = document.getElementById('spacingVal');
+            const shadePct = document.getElementById('shadePct');
+            const winterEff = document.getElementById('winterEff');
+            const shadowOffset = document.getElementById('shadowOffset');
+            const activeAngleDisplay = document.getElementById('activeAngleDisplay');
+
+            // Application State Configurations
+            let activeSunAngle = 73.67; // Summer default solar noon altitude
+            const latIndy = 39.77;
+            const roofHeight = 120; // 10 feet in inches
+            const numSlats = 5;
+
+            // Track Slider Values
+            let currentSlatAngle = parseFloat(angleSlider.value); // Deg
+            let currentSlatWidth = parseFloat(widthSlider.value); // Inches
+            let currentSlatSpacing = parseFloat(spacingSlider.value) / 10; // Inches
+
+            // Event Listeners for Season Buttons
+            summerBtn.addEventListener('click', () => {
+                activeSunAngle = 90 - latIndy + 23.44;
+                setSeasonUi(summerBtn, winterBtn, "Summer Solstice (73.7°)");
+            });
+
+            winterBtn.addEventListener('click', () => {
+                activeSunAngle = 90 - latIndy - 23.44;
+                setSeasonUi(winterBtn, summerBtn, "Winter Solstice (26.8°)");
+            });
+
+            function setSeasonUi(active, inactive, text) {
+                active.className = "py-2 px-3 rounded-lg text-sm font-semibold border transition-all duration-200 bg-amber-500/20 border-amber-500 text-amber-300 shadow-lg shadow-amber-500/10";
+                inactive.className = "py-2 px-3 rounded-lg text-sm font-semibold border transition-all duration-200 bg-slate-700 border-slate-600 text-slate-400 hover:text-slate-200";
+                activeAngleDisplay.innerText = `Sun Angle: ${activeSunAngle.toFixed(1)}°`;
+                drawSimulation();
+            }
+
+            // Event Listeners for Sliders
+            angleSlider.addEventListener('input', (e) => {
+                currentSlatAngle = parseFloat(e.target.value);
+                angleVal.innerText = `${currentSlatAngle}°`;
+                drawSimulation();
+            });
+
+            widthSlider.addEventListener('input', (e) => {
+                currentSlatWidth = parseFloat(e.target.value);
+                widthVal.innerText = `${currentSlatWidth} in`;
+                drawSimulation();
+            });
+
+            spacingSlider.addEventListener('input', (e) => {
+                currentSlatSpacing = parseFloat(e.target.value) / 10;
+                spacingVal.innerText = `${currentSlatSpacing.toFixed(1)} in`;
+                drawSimulation();
+            });
+
+            // Resize management
+            function resizeCanvas() {
+                const rect = canvas.getBoundingClientRect();
+                canvas.width = rect.width * window.devicePixelRatio;
+                canvas.height = rect.height * window.devicePixelRatio;
+                ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                drawSimulation();
+            }
+            window.addEventListener('resize', resizeCanvas);
+
+            // Helper to format inches into Feet and Inches
+            function formatFeetInches(totalInches) {
+                const ft = Math.floor(totalInches / 12);
+                const inches = Math.round(totalInches % 12);
+                if (inches === 12) return `${ft + 1}' 0"`;
+                return `${ft}' ${inches}"`;
+            }
+
+            // Core Rendering Engine
+            function drawSimulation() {
+                const w = canvas.width / window.devicePixelRatio;
+                const h = canvas.height / window.devicePixelRatio;
+                if (w === 0 || h === 0) return;
+
+                // Clear Scene
+                ctx.clearRect(0, 0, w, h);
+
+                // Math & Angle Setup
+                const sunRad = activeSunAngle * (Math.PI / 180);
+                const tiltRad = currentSlatAngle * (Math.PI / 180);
+
+                // Fixed Vertical Scaling
+                const padLeft = w * 0.12;
+                const padTop = h * 0.12;
+                const padBottom = 50;
+                const drawHeight = h - padTop - padBottom;
+
+                // Constant vertical reference keeps the 10ft height fixed on screen
+                const maxVerticalInches = 165; 
+                const ppi = drawHeight / maxVerticalInches; 
+
+                const yGround = h - padBottom;
+                const yRoof = yGround - (roofHeight * ppi);
+
+                // Calculate Theoretical Metrics
+                const radSummer = (73.67) * (Math.PI / 180);
+                const expectedSummerGap = currentSlatSpacing * Math.sin(radSummer) - (currentSlatWidth * Math.sin(radSummer - tiltRad));
+                let calculatedShade = 100;
+                if (expectedSummerGap > 0) {
+                    calculatedShade = Math.max(0, 100 - (expectedSummerGap / (currentSlatSpacing * Math.sin(radSummer)) * 100));
+                }
+                shadePct.innerText = `${Math.round(calculatedShade)}%`;
+
+                const radWinter = (26.79) * (Math.PI / 180);
+                const alignmentDeficit = Math.abs(radWinter - tiltRad);
+                const winterEfficiency = Math.max(0, Math.min(100, Math.cos(alignmentDeficit) * 100));
+                winterEff.innerText = `${Math.round(winterEfficiency)}%`;
+
+                // Calculate Shadow Bounds
+                const minShadowInches = roofHeight / Math.tan(sunRad);
+                const lastSlatXInches = (numSlats - 1) * currentSlatSpacing + (currentSlatWidth * Math.cos(tiltRad));
+                const lastSlatYInches = roofHeight + (currentSlatWidth * Math.sin(tiltRad));
+                const maxShadowReachInches = lastSlatXInches + (lastSlatYInches / Math.tan(sunRad));
+
+                shadowOffset.innerText = `${formatFeetInches(minShadowInches)} – ${formatFeetInches(maxShadowReachInches)}`;
+
+                // 1. Draw Ground Plane
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, yGround);
+                ctx.lineTo(w, yGround);
+                ctx.stroke();
+                ctx.fillStyle = '#334155';
+                ctx.font = '10px monospace';
+                ctx.fillText('PATIO GROUND PLANE (10 FT BELOW)', 10, yGround + 15);
+
+                // 2. Draw Louvers and Trace Rays
+                const pixelSlatWidth = currentSlatWidth * ppi;
+                const pixelSlatSpacing = currentSlatSpacing * ppi;
+
+                // Render Sun Beam Bands
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.07)';
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.2)';
+                ctx.lineWidth = 1;
+
+                for (let i = 0; i < numSlats; i++) {
+                    const xSlatStart = padLeft + (i * pixelSlatSpacing);
+                    const xSlatEnd = xSlatStart + (pixelSlatWidth * Math.cos(tiltRad));
+                    const ySlatEnd = yRoof - (pixelSlatWidth * Math.sin(tiltRad));
+
+                    const distToGroundStart = yGround - yRoof;
+                    const xRayStartGround = xSlatStart + (distToGroundStart / Math.tan(sunRad));
+
+                    const distToGroundEnd = yGround - ySlatEnd;
+                    const xRayEndGround = xSlatEnd + (distToGroundEnd / Math.tan(sunRad));
+
+                    // Light pathways
+                    ctx.beginPath();
+                    ctx.moveTo(xSlatStart, yRoof);
+                    ctx.lineTo(xRayStartGround, yGround);
+                    ctx.lineTo(xRayEndGround, yGround);
+                    ctx.lineTo(xSlatEnd, ySlatEnd);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Vector lines
+                    ctx.beginPath();
+                    ctx.moveTo(xSlatStart, yRoof);
+                    ctx.lineTo(xRayStartGround, yGround);
+                    ctx.moveTo(xSlatEnd, ySlatEnd);
+                    ctx.lineTo(xRayEndGround, yGround);
+                    ctx.stroke();
+                }
+
+                // Draw Solid Slats
+                ctx.strokeStyle = '#f8fafc';
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                
+                for (let i = 0; i < numSlats; i++) {
+                    const xSlatStart = padLeft + (i * pixelSlatSpacing);
+                    const xSlatEnd = xSlatStart + (pixelSlatWidth * Math.cos(tiltRad));
+                    const ySlatEnd = yRoof - (pixelSlatWidth * Math.sin(tiltRad));
+
+                    ctx.beginPath();
+                    ctx.moveTo(xSlatStart, yRoof);
+                    ctx.lineTo(xSlatEnd, ySlatEnd);
+                    ctx.stroke();
+                }
+
+                // Reference Post
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(padLeft, yRoof);
+                ctx.lineTo(padLeft, yGround);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Shadow Zone Dimension Line
+                const xOffsetStartPixel = padLeft + (minShadowInches * ppi);
+                const xOffsetEndPixel = padLeft + (maxShadowReachInches * ppi);
+                const yDimLine = yGround + 25;
+
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(padLeft, yDimLine);
+                ctx.lineTo(xOffsetEndPixel, yDimLine);
+                
+                // Ticks
+                ctx.moveTo(padLeft, yDimLine - 4);
+                ctx.lineTo(padLeft, yDimLine + 4);
+                ctx.moveTo(xOffsetStartPixel, yDimLine - 4);
+                ctx.lineTo(xOffsetStartPixel, yDimLine + 4);
+                ctx.moveTo(xOffsetEndPixel, yDimLine - 4);
+                ctx.lineTo(xOffsetEndPixel, yDimLine + 4);
+                ctx.stroke();
+
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = 'bold 10px monospace';
+                ctx.textAlign = 'center';
+                const labelX = (padLeft + xOffsetEndPixel) / 2;
+                ctx.fillText(`Shadow Zone: ${formatFeetInches(minShadowInches)} to ${formatFeetInches(maxShadowReachInches)} from post`, labelX, yDimLine + 12);
+                ctx.textAlign = 'left';
+            }
+
+            // Initial render call
+            setTimeout(resizeCanvas, 50);
+        });
+    </script>
+</body>
+</html>
